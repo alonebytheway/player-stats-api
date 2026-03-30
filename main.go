@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
 )
 
 type PlayerService struct {
@@ -13,7 +15,6 @@ type PlayerHandler struct {
 }
 
 func main() {
-
 	db := ConnectDB()
 	defer db.Close()
 
@@ -21,14 +22,18 @@ func main() {
 	service := &PlayerService{repo: repo}
 	handler := &PlayerHandler{service: service}
 
-	chain := Chain(LoggingMiddleware, AuthMiddleware)
+	r := chi.NewRouter()
 
-	http.Handle("/players", chain(http.HandlerFunc(handler.HandlePlayers)))
+	r.Use(LoggingMiddleware)
+	r.Use(AuthMiddleware)
 
-	http.Handle("/leaderboard", chain(http.HandlerFunc(handler.GetLeaderboard)))
+	r.Get("/players/", handler.GetPlayers)
+	r.Get("/leaderboard", handler.GetLeaderboard)
 
-	http.Handle("/players/", chain(http.HandlerFunc(handler.HandlePlayerByName)))
+	r.Route("/players", func(r chi.Router) {
+		r.Delete("/{name}", handler.DeletePlayer)
+		r.Patch("/{name}", handler.UpdatePlayer)
+	})
 
-	http.ListenAndServe(":8080", nil)
-
+	http.ListenAndServe(":8080", r)
 }

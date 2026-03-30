@@ -86,7 +86,7 @@ func (s *PlayerService) GetLeaderboard() ([]LeaderboardEntry, error) {
 	return leaderboard, nil
 }
 
-func (s *PlayerService) Delete(name string) error {
+func (s *PlayerService) DeletePlayer(name string) error {
 	if name == "" {
 		return ErrorBadRequest
 	}
@@ -100,4 +100,18 @@ func (s *PlayerService) Delete(name string) error {
 	}
 
 	return nil
+}
+
+func (s *PlayerService) GetPlayer(name string) (Player, error) {
+	if name == "" {
+		return Player{}, ErrorBadRequest
+	}
+	player, err := s.repo.GetByName(name)
+	if err != nil {
+		if err == ErrorNotFound {
+			return Player{}, ErrorNotFound
+		}
+		return Player{}, err
+	}
+	return player, nil
 }

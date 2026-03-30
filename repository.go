@@ -16,6 +16,16 @@ func (r *PlayerRepository) Create(p Player) error {
 	return err
 }
 
+func (r *PlayerRepository) GetByName(name string) (Player, error) {
+	row := r.db.QueryRow("SELECT name, kills, deaths, matches FROM players WHERE name = $1", name)
+	var p Player
+	err := row.Scan(&p.Name, &p.Kills, &p.Deaths, &p.Matches)
+	if err != nil {
+		return Player{}, err
+	}
+	return p, nil
+}
+
 func (r *PlayerRepository) GetAll() ([]Player, error) {
 	rows, err := r.db.Query("SELECT name, kills, deaths, matches FROM players")
 	if err != nil {
@@ -56,7 +66,9 @@ func (r *PlayerRepository) Update(name string, update UpdatePlayer) error {
 		args = append(args, *update.Matches)
 		argPos++
 	}
-
+	if len(setClauses) == 0 {
+		return fmt.Errorf("no fields to update")
+	}
 	args = append(args, name)
 
 	query := "UPDATE players SET " + strings.Join(setClauses, ", ") + " WHERE name=$" + fmt.Sprint(argPos)
@@ -70,7 +82,7 @@ func (r *PlayerRepository) Update(name string, update UpdatePlayer) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return fmt.Errorf("player not found")
+		return ErrorNotFound
 	}
 	return nil
 }
@@ -89,7 +101,7 @@ func (r *PlayerRepository) Delete(name string) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("player not found")
+		return ErrorNotFound
 	}
 
 	return nil
