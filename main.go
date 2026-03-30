@@ -25,7 +25,7 @@ func main() {
 
 	http.Handle("/players", chain(http.HandlerFunc(handler.HandlePlayers)))
 
-	http.Handle("/leaderboard", chain(http.HandlerFunc(handler.HandlerLeaderboard)))
+	http.Handle("/leaderboard", chain(http.HandlerFunc(handler.GetLeaderboard)))
 
 	http.Handle("/players/", chain(http.HandlerFunc(handler.HandlePlayerByName)))
 

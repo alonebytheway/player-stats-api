@@ -45,7 +45,7 @@ func Chain(middlewares ...func(http.Handler) http.Handler) func(http.Handler) ht
 	}
 }
 
-func (h *PlayerHandler) HandlerLeaderboard(w http.ResponseWriter, r *http.Request) {
+func (h *PlayerHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
