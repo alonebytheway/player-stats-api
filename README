@@ -1,0 +1,53 @@
+# Player Stats API
+
+Backend сервис на Go для хранения и обработки статистики игроков.
+
+## 🚀 Функционал
+
+- CRUD операции с игроками
+- Частичное обновление (PATCH)
+- Leaderboard (сортировка по KD)
+- Middleware (логирование, аутентификация)
+
+## 🛠 Технологии
+
+- Go
+- PostgreSQL
+- net/http
+
+## 🧱 Архитектура
+
+Проект построен по layered architecture:
+
+- Handler — обработка HTTP запросов
+- Service — бизнес-логика
+- Repository — работа с БД
+
+## 📌 Примеры запросов
+
+### Создание игрока
+
+POST /players
+
+```json
+{
+  "name": "player1",
+  "kills": 10,
+  "deaths": 5,
+  "matches": 3
+}
+### Patch 
+
+PATCH /players/{name}
+{
+  "kills": 10
+}
+### Пример Ответа
+
+{
+  "status": "patched"
+}
+
+### Архитектура
+
+Handler → Service → Repository → DB
