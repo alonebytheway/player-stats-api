@@ -23,6 +23,10 @@ type UpdatePlayer struct {
 	Matches *int `json:"matches"`
 }
 
+type TopPlayer struct {
+	Limit int `json:"limit"`
+}
+
 var players = []Player{
 	{Name: "Alex", Kills: 10, Deaths: 5, Matches: 10},
 	{Name: "Max", Kills: 5, Deaths: 7, Matches: 10},

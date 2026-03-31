@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -26,8 +27,8 @@ func (r *PlayerRepository) GetByName(name string) (Player, error) {
 	return p, nil
 }
 
-func (r *PlayerRepository) GetAll() ([]Player, error) {
-	rows, err := r.db.Query("SELECT name, kills, deaths, matches FROM players")
+func (r *PlayerRepository) GetAll(ctx context.Context) ([]Player, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT name, kills, deaths, matches FROM players")
 	if err != nil {
 		return nil, err
 	}
@@ -105,4 +106,8 @@ func (r *PlayerRepository) Delete(name string) error {
 	}
 
 	return nil
+}
+
+func (r *PlayerRepository) GetTopPlayers(limit int) ([]Player, error) {
+
 }

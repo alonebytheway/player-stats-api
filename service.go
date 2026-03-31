@@ -1,13 +1,15 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"sort"
 )
 
 var (
-	ErrorNotFound   = fmt.Errorf("not found")
-	ErrorBadRequest = fmt.Errorf("bad request")
+	ErrorNotFound     = errors.New("not found")
+	ErrorBadRequest   = errors.New("bad request")
+	ErrorInvalidStats = errors.New("invalid stats")
 )
 
 func KD(p Player) float64 {
@@ -26,19 +28,23 @@ func AvgKills(p Player) float64 {
 
 func (s *PlayerService) CreatePlayer(p Player) error {
 	if p.Name == "" {
-		return fmt.Errorf("name is required")
+		return ErrorBadRequest
 	}
 	if p.Kills < 0 || p.Deaths < 0 || p.Matches < 0 {
-		return fmt.Errorf("invalid stats")
+		return ErrorInvalidStats
 	}
 	return s.repo.Create(p)
 }
 
-func (s *PlayerService) GetAll() ([]Player, error) {
-	return s.repo.GetAll()
+func (s *PlayerService) GetAll(ctx context.Context) ([]Player, error) {
+	return s.repo.GetAll(ctx)
 }
 
 func (s *PlayerService) Update(name string, update UpdatePlayer) error {
+	if name == "" {
+		return ErrorBadRequest
+	}
+
 	if update.Kills != nil && *update.Kills < 0 {
 		return ErrorBadRequest
 	}
@@ -53,24 +59,40 @@ func (s *PlayerService) Update(name string, update UpdatePlayer) error {
 		return ErrorBadRequest
 	}
 
-	err := s.repo.Update(name, update)
-	if err != nil {
-		if err.Error() == "player not found" {
-			return ErrorNotFound
-		}
-		return err
-	}
-	return nil
+	return s.repo.Update(name, update)
 }
 
-func (s *PlayerService) GetLeaderboard() ([]LeaderboardEntry, error) {
-
-	players, err := s.repo.GetAll()
+func (s *PlayerService) GetTopPlayers(ctx context.Context, limit int) ([]LeaderboardEntry, error) {
+	players, err := s.repo.GetAll(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var leaderboard []LeaderboardEntry
+	leaderboard := make([]LeaderboardEntry, 0, len(players))
+
+	for _, p := range players {
+		leaderboard = append(leaderboard, LeaderboardEntry{
+			Name: p.Name,
+			KD:   KD(p),
+		})
+	}
+	sort.Slice(leaderboard, func(i, j int) bool {
+		return leaderboard[i].KD > leaderboard[j].KD
+	})
+	if limit < len(leaderboard) {
+		leaderboard = leaderboard[:limit]
+	}
+	return leaderboard, nil
+}
+
+func (s *PlayerService) buildeLeaderboard(players []Player) ([]LeaderboardEntry, error) {
+
+	players, err := s.repo.GetAll(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	leaderboard := make([]LeaderboardEntry, 0, len(players))
 
 	for _, p := range players {
 		leaderboard = append(leaderboard, LeaderboardEntry{
@@ -93,9 +115,6 @@ func (s *PlayerService) DeletePlayer(name string) error {
 
 	err := s.repo.Delete(name)
 	if err != nil {
-		if err.Error() == "player not found" {
-			return ErrorNotFound
-		}
 		return err
 	}
 
@@ -106,11 +125,9 @@ func (s *PlayerService) GetPlayer(name string) (Player, error) {
 	if name == "" {
 		return Player{}, ErrorBadRequest
 	}
+
 	player, err := s.repo.GetByName(name)
 	if err != nil {
-		if err == ErrorNotFound {
-			return Player{}, ErrorNotFound
-		}
 		return Player{}, err
 	}
 	return player, nil
