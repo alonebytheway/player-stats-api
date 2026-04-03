@@ -1,5 +1,9 @@
 package main
 
+import (
+	"net/http"
+)
+
 type Player struct {
 	Name    string `json:"name"`
 	Kills   int    `json:"kills"`
@@ -27,12 +31,6 @@ type TopPlayer struct {
 	Limit int `json:"limit"`
 }
 
-var players = []Player{
-	{Name: "Alex", Kills: 10, Deaths: 5, Matches: 10},
-	{Name: "Max", Kills: 5, Deaths: 7, Matches: 10},
-	{Name: "John", Kills: 20, Deaths: 2, Matches: 10},
-}
-
 type IPlayerRepository interface {
 	Create(player Player) error
 	Update(name string, update UpdatePlayer) error
@@ -45,4 +43,18 @@ type IPlayerService interface {
 	Update(name string, update UpdatePlayer) error
 	Delete(name string) error
 	GetLeaderboard() ([]Player, error)
+}
+
+type contextKey string
+
+type LoggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+const userContextKey contextKey = "userID"
+
+type DuelRequest struct {
+	Winner string `json:"winner"`
+	Loser  string `json:"loser"`
 }

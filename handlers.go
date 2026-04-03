@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,13 +25,24 @@ func writeError(w http.ResponseWriter, status int, message string) {
 
 }
 
+func UserIDFromContext(ctx context.Context) (int, bool) {
+	id, ok := ctx.Value(userContextKey).(int)
+	return id, ok
+}
+
+func (lrw *LoggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		fmt.Println(start, r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
+		lrw := &LoggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		next.ServeHTTP(lrw, r)
 		duration := time.Since(start)
-		fmt.Println(r.Method, r.URL.Path, "-", duration)
+		fmt.Println(r.Method, r.URL.Path, "-", duration, "Status:", lrw.statusCode)
 	})
 }
 
@@ -41,34 +53,15 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		next.ServeHTTP(w, r)
+
+		userID := 42
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, userContextKey, userID)
+		reqWithCtx := r.WithContext(ctx)
+
+		next.ServeHTTP(w, reqWithCtx)
 
 	})
-}
-
-func (h *PlayerHandler) GetTopPlayers(w http.ResponseWriter, r *http.Request) {
-	limitStr := r.URL.Query().Get("limit")
-
-	if limitStr == "" {
-		writeJSON(w, http.StatusBadRequest, "limit is required")
-		return
-	}
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		writeError(w, http.StatusBadRequest, "invalid limit")
-		return
-	}
-
-	players, err := h.service.GetTopPlayers(r.Context(), limit)
-	if err != nil {
-		if errors.Is(err, ErrorBadRequest) {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "Server error")
-		return
-	}
-	writeJSON(w, http.StatusOK, players)
 }
 
 func (h *PlayerHandler) GetPlayers(w http.ResponseWriter, r *http.Request) {
@@ -87,16 +80,33 @@ func (h *PlayerHandler) GetPlayers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PlayerHandler) CreatePlayer(w http.ResponseWriter, r *http.Request) {
+
+	_, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
 	var p Player
 
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
 	}
 
-	err := h.service.CreatePlayer(p)
+	err := h.service.CreatePlayer(ctx, p)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeError(w, http.StatusGatewayTimeout, "db timeout")
+			return
+		}
+
 		if errors.Is(err, ErrorBadRequest) || errors.Is(err, ErrorInvalidStats) {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
 		}
 		writeError(w, http.StatusBadRequest, "server error")
 		return
@@ -188,4 +198,68 @@ func (h *PlayerHandler) DeletePlayer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *PlayerHandler) GetTopPlayers(w http.ResponseWriter, r *http.Request) {
+	limitStr := r.URL.Query().Get("limit")
+	pageStr := r.URL.Query().Get("page")
+
+	if limitStr == "" {
+		writeError(w, http.StatusBadRequest, "limit is required")
+		return
+	}
+	if pageStr == "" {
+		writeError(w, http.StatusBadRequest, "page is required")
+		return
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid limit")
+		return
+	}
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		writeError(w, http.StatusBadRequest, "invalid page")
+		return
+	}
+
+	offset := (page - 1) * limit
+
+	players, err := h.service.GetTopPlayers(r.Context(), limit, offset)
+	if err != nil {
+		if errors.Is(err, ErrorBadRequest) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "Server error")
+		return
+	}
+	writeJSON(w, http.StatusOK, players)
+}
+
+func (h *PlayerHandler) RecordDuel(w http.ResponseWriter, r *http.Request) {
+	_, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+	var duelRequest DuelRequest
+	if err := json.NewDecoder(r.Body).Decode(&duelRequest); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	err := h.service.RecordDuel(r.Context(), duelRequest.Winner, duelRequest.Loser)
+	if err != nil {
+		if errors.Is(err, ErrorBadRequest) {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "Server error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "duel recorded"})
 }

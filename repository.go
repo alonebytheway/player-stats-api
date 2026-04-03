@@ -11,8 +11,8 @@ type PlayerRepository struct {
 	db *sql.DB
 }
 
-func (r *PlayerRepository) Create(p Player) error {
-	_, err := r.db.Exec("INSERT INTO players (name, kills, deaths, matches) VALUES ($1, $2, $3, $4)",
+func (r *PlayerRepository) Create(ctx context.Context, p Player) error {
+	_, err := r.db.ExecContext(ctx, "INSERT INTO players (name, kills, deaths, matches) VALUES ($1, $2, $3, $4)",
 		p.Name, p.Kills, p.Deaths, p.Matches)
 	return err
 }
@@ -108,6 +108,44 @@ func (r *PlayerRepository) Delete(name string) error {
 	return nil
 }
 
-func (r *PlayerRepository) GetTopPlayers(limit int) ([]Player, error) {
+func (r *PlayerRepository) GetTop(ctx context.Context, limit int, offset int) ([]Player, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT name, kills, deaths, matches FROM players ORDER BY(CASE WHEN matches = 0 THEN 0 ELSE(CAST(kills AS FLOAT)/ matches) END) DESC LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
+	players := make([]Player, 0, limit)
+
+	for rows.Next() {
+		var p Player
+		if err := rows.Scan(&p.Name, &p.Kills, &p.Deaths, &p.Matches); err != nil {
+			return nil, err
+		}
+		players = append(players, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return players, nil
+}
+
+func (r *PlayerRepository) RecordDuel(ctx context.Context, winner string, loser string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, "UPDATE players SET kills = kills + 1, matches = matches + 1 WHERE name = $1", winner)
+	if err != nil {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, "UPDATE players SET deaths = deaths + 1, matches = matches + 1 WHERE name = $1", loser)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }

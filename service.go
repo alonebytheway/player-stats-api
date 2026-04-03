@@ -26,14 +26,14 @@ func AvgKills(p Player) float64 {
 	return float64(p.Kills) / float64(p.Matches)
 }
 
-func (s *PlayerService) CreatePlayer(p Player) error {
+func (s *PlayerService) CreatePlayer(ctx context.Context, p Player) error {
 	if p.Name == "" {
 		return ErrorBadRequest
 	}
 	if p.Kills < 0 || p.Deaths < 0 || p.Matches < 0 {
 		return ErrorInvalidStats
 	}
-	return s.repo.Create(p)
+	return s.repo.Create(ctx, p)
 }
 
 func (s *PlayerService) GetAll(ctx context.Context) ([]Player, error) {
@@ -60,29 +60,6 @@ func (s *PlayerService) Update(name string, update UpdatePlayer) error {
 	}
 
 	return s.repo.Update(name, update)
-}
-
-func (s *PlayerService) GetTopPlayers(ctx context.Context, limit int) ([]LeaderboardEntry, error) {
-	players, err := s.repo.GetAll(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	leaderboard := make([]LeaderboardEntry, 0, len(players))
-
-	for _, p := range players {
-		leaderboard = append(leaderboard, LeaderboardEntry{
-			Name: p.Name,
-			KD:   KD(p),
-		})
-	}
-	sort.Slice(leaderboard, func(i, j int) bool {
-		return leaderboard[i].KD > leaderboard[j].KD
-	})
-	if limit < len(leaderboard) {
-		leaderboard = leaderboard[:limit]
-	}
-	return leaderboard, nil
 }
 
 func (s *PlayerService) buildeLeaderboard(players []Player) ([]LeaderboardEntry, error) {
@@ -131,4 +108,28 @@ func (s *PlayerService) GetPlayer(name string) (Player, error) {
 		return Player{}, err
 	}
 	return player, nil
+}
+
+func (s *PlayerService) GetTopPlayers(ctx context.Context, limit int, offset int) ([]LeaderboardEntry, error) {
+	if limit > 101 {
+		limit = 100
+	}
+
+	players, err := s.repo.GetTop(ctx, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	leaderboard := make([]LeaderboardEntry, 0, len(players))
+	for _, p := range players {
+		leaderboard = append(leaderboard, LeaderboardEntry{
+			Name: p.Name,
+			KD:   KD(p),
+		})
+	}
+	return leaderboard, nil
+}
+
+func (s *PlayerService) RecordDuel(ctx context.Context, winner string, loser string) error {
+	return s.repo.RecordDuel(ctx, winner, loser)
 }

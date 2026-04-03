@@ -31,8 +31,10 @@ func main() {
 	r.Get("/leaderboard", handler.GetLeaderboard)
 
 	r.Route("/players", func(r chi.Router) {
+		r.Post("/", handler.CreatePlayer)
 		r.Delete("/{name}", handler.DeletePlayer)
 		r.Patch("/{name}", handler.UpdatePlayer)
+		r.Post("/duel", handler.RecordDuel)
 	})
 
 	http.ListenAndServe(":8080", r)
