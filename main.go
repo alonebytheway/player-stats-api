@@ -27,10 +27,11 @@ func main() {
 	r.Use(LoggingMiddleware)
 	r.Use(AuthMiddleware)
 
-	r.Get("/players/", handler.GetPlayers)
 	r.Get("/leaderboard", handler.GetLeaderboard)
 
 	r.Route("/players", func(r chi.Router) {
+		r.Get("/", handler.GetPlayers)
+
 		r.Post("/", handler.CreatePlayer)
 		r.Delete("/{name}", handler.DeletePlayer)
 		r.Patch("/{name}", handler.UpdatePlayer)

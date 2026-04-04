@@ -1,0 +1,19 @@
+services: 
+  db: 
+    image: postgres:15-alpine
+    restart: always
+    environment:  # Исправлено (добавлена 'n')
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: postgres 
+    ports:
+      - "5432:5432"
+
+  app:  # Теперь на одном уровне с db!
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:  # Исправлено (добавлена 'n')
+      DB_URL: "host=db port=5432 user=postgres password=admin123 dbname=postgres sslmode=disable"
