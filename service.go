@@ -115,7 +115,7 @@ func (s *PlayerService) GetTopPlayers(ctx context.Context, limit int, offset int
 		limit = 100
 	}
 
-	players, err := s.repo.GetTop(ctx, limit, offset)
+	players, err := s.repo.GetTopPlayers(ctx, limit, offset)
 	if err != nil {
 		return nil, err
 	}

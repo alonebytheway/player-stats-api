@@ -3,7 +3,10 @@ package main
 import (
 	"net/http"
 
+	"log"
+
 	"github.com/go-chi/chi/v5"
+	"github.com/pressly/goose"
 )
 
 type PlayerService struct {
@@ -16,6 +19,10 @@ type PlayerHandler struct {
 
 func main() {
 	db := ConnectDB()
+	err := goose.Up(db, "migrations")
+	if err != nil {
+		log.Fatalf("faild to apply migration: %v", err)
+	}
 	defer db.Close()
 
 	repo := &PlayerRepository{db: db}

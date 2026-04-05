@@ -147,20 +147,16 @@ func (h *PlayerHandler) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlayerHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
-	players, err := h.service.GetAll(r.Context())
+	limit := 10
+	offset := 0
+
+	players, err := h.service.GetTopPlayers(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Server error")
 		return
 	}
 
-	leaderboard, err := h.service.buildeLeaderboard(players)
-
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Server error")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, leaderboard)
+	writeJSON(w, http.StatusOK, players)
 
 }
 

@@ -108,8 +108,8 @@ func (r *PlayerRepository) Delete(name string) error {
 	return nil
 }
 
-func (r *PlayerRepository) GetTop(ctx context.Context, limit int, offset int) ([]Player, error) {
-	rows, err := r.db.QueryContext(ctx, "SELECT name, kills, deaths, matches FROM players ORDER BY(CASE WHEN matches = 0 THEN 0 ELSE(CAST(kills AS FLOAT)/ matches) END) DESC LIMIT $1 OFFSET $2", limit, offset)
+func (r *PlayerRepository) GetTopPlayers(ctx context.Context, limit int, offset int) ([]Player, error) {
+	rows, err := r.db.QueryContext(ctx, "SELECT name, kills, deaths, matches FROM players ORDER BY(CASE WHEN deaths = 0 THEN kills ELSE(CAST(kills AS FLOAT)/ deaths) END) DESC LIMIT $1 OFFSET $2", limit, offset)
 	if err != nil {
 		return nil, err
 	}
