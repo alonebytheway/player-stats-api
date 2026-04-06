@@ -3,20 +3,24 @@ package main
 import (
 	"database/sql"
 	"log"
+	"os"
 	"time"
 
 	_ "github.com/lib/pq"
 )
 
 func ConnectDB() *sql.DB {
-	connStr := "host=db port=5432 user=postgres password=admin123 dbname=postgres sslmode=disable"
+	dsn := os.Getenv("DB_DSN")
+	if dsn == "" {
+		log.Fatal("DB_DSN not in .env file's")
+	}
 
 	var db *sql.DB
 	var err error
 
 	for i := 0; i < 10; i++ {
 		// Используем "=", а не ":=", чтобы не создавать новые переменные
-		db, err = sql.Open("postgres", connStr)
+		db, err = sql.Open("postgres", dsn)
 		if err == nil {
 			err = db.Ping()
 		}

@@ -1,16 +1,17 @@
 package main
 
 import (
-	"net/http"
-
 	"log"
+	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/joho/godotenv"
 	"github.com/pressly/goose"
 )
 
 type PlayerService struct {
-	repo *PlayerRepository
+	repo Repository
 }
 
 type PlayerHandler struct {
@@ -18,7 +19,11 @@ type PlayerHandler struct {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("Fill .env is not found")
+	}
 	db := ConnectDB()
+
 	err := goose.Up(db, "migrations")
 	if err != nil {
 		log.Fatalf("faild to apply migration: %v", err)
@@ -45,5 +50,12 @@ func main() {
 		r.Post("/duel", handler.RecordDuel)
 	})
 
-	http.ListenAndServe(":8080", r)
+	go backgroundWorker()
+
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "8081"
+	}
+	log.Printf("Server has started by port %s...", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }

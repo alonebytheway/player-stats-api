@@ -122,14 +122,14 @@ func (h *PlayerHandler) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-
+	ctx := r.Context()
 	name := chi.URLParam(r, "name")
 	if name == "" {
 		writeError(w, http.StatusBadRequest, "name required")
 		return
 	}
 
-	err := h.service.Update(name, update)
+	err := h.service.Update(ctx, name, update)
 	if err != nil {
 		if errors.Is(err, ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "Player not found")
@@ -162,8 +162,9 @@ func (h *PlayerHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlayerHandler) GetPlayer(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	ctx := r.Context()
 
-	player, err := h.service.GetPlayer(name)
+	player, err := h.service.GetPlayer(ctx, name)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Server error")
 		return
@@ -174,13 +175,13 @@ func (h *PlayerHandler) GetPlayer(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlayerHandler) DeletePlayer(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
-
+	ctx := r.Context()
 	if name == "" {
 		http.Error(w, "name required", http.StatusBadRequest)
 		return
 	}
 
-	err := h.service.DeletePlayer(name)
+	err := h.service.DeletePlayer(ctx, name)
 	if err != nil {
 		if errors.Is(err, ErrorNotFound) {
 			writeError(w, http.StatusNotFound, "Player not found")

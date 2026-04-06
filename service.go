@@ -12,6 +12,16 @@ var (
 	ErrorInvalidStats = errors.New("invalid stats")
 )
 
+type Repository interface {
+	Create(ctx context.Context, p Player) error
+	GetByName(ctx context.Context, name string) (Player, error)
+	GetAll(ctx context.Context) ([]Player, error)
+	Update(ctx context.Context, name string, update UpdatePlayer) error
+	Delete(ctx context.Context, name string) error
+	GetTopPlayers(ctx context.Context, limit int, offset int) ([]Player, error)
+	RecordDuel(ctx context.Context, winner string, loser string) error
+}
+
 func KD(p Player) float64 {
 	if p.Deaths == 0 {
 		return float64(p.Kills)
@@ -40,7 +50,7 @@ func (s *PlayerService) GetAll(ctx context.Context) ([]Player, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *PlayerService) Update(name string, update UpdatePlayer) error {
+func (s *PlayerService) Update(ctx context.Context, name string, update UpdatePlayer) error {
 	if name == "" {
 		return ErrorBadRequest
 	}
@@ -59,7 +69,7 @@ func (s *PlayerService) Update(name string, update UpdatePlayer) error {
 		return ErrorBadRequest
 	}
 
-	return s.repo.Update(name, update)
+	return s.repo.Update(ctx, name, update)
 }
 
 func (s *PlayerService) buildeLeaderboard(players []Player) ([]LeaderboardEntry, error) {
@@ -85,12 +95,12 @@ func (s *PlayerService) buildeLeaderboard(players []Player) ([]LeaderboardEntry,
 	return leaderboard, nil
 }
 
-func (s *PlayerService) DeletePlayer(name string) error {
+func (s *PlayerService) DeletePlayer(ctx context.Context, name string) error {
 	if name == "" {
 		return ErrorBadRequest
 	}
 
-	err := s.repo.Delete(name)
+	err := s.repo.Delete(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -98,12 +108,12 @@ func (s *PlayerService) DeletePlayer(name string) error {
 	return nil
 }
 
-func (s *PlayerService) GetPlayer(name string) (Player, error) {
+func (s *PlayerService) GetPlayer(ctx context.Context, name string) (Player, error) {
 	if name == "" {
 		return Player{}, ErrorBadRequest
 	}
 
-	player, err := s.repo.GetByName(name)
+	player, err := s.repo.GetByName(ctx, name)
 	if err != nil {
 		return Player{}, err
 	}

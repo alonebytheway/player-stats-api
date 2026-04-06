@@ -31,20 +31,6 @@ type TopPlayer struct {
 	Limit int `json:"limit"`
 }
 
-type IPlayerRepository interface {
-	Create(player Player) error
-	Update(name string, update UpdatePlayer) error
-	Delete(name string) error
-	GetLeaderboard() ([]Player, error)
-}
-
-type IPlayerService interface {
-	CreatePlayer(player Player) error
-	Update(name string, update UpdatePlayer) error
-	Delete(name string) error
-	GetLeaderboard() ([]Player, error)
-}
-
 type contextKey string
 
 type LoggingResponseWriter struct {

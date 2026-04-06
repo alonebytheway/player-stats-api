@@ -17,7 +17,7 @@ func (r *PlayerRepository) Create(ctx context.Context, p Player) error {
 	return err
 }
 
-func (r *PlayerRepository) GetByName(name string) (Player, error) {
+func (r *PlayerRepository) GetByName(ctx context.Context, name string) (Player, error) {
 	row := r.db.QueryRow("SELECT name, kills, deaths, matches FROM players WHERE name = $1", name)
 	var p Player
 	err := row.Scan(&p.Name, &p.Kills, &p.Deaths, &p.Matches)
@@ -45,7 +45,7 @@ func (r *PlayerRepository) GetAll(ctx context.Context) ([]Player, error) {
 
 }
 
-func (r *PlayerRepository) Update(name string, update UpdatePlayer) error {
+func (r *PlayerRepository) Update(ctx context.Context, name string, update UpdatePlayer) error {
 	var setClauses []string
 	var args []any
 	argPos := 1
@@ -88,7 +88,7 @@ func (r *PlayerRepository) Update(name string, update UpdatePlayer) error {
 	return nil
 }
 
-func (r *PlayerRepository) Delete(name string) error {
+func (r *PlayerRepository) Delete(ctx context.Context, name string) error {
 	result, err := r.db.Exec(
 		"DELETE FROM player WHERE name = $1",
 		name,
