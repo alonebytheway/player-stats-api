@@ -16,6 +16,7 @@ type PlayerService struct {
 
 type PlayerHandler struct {
 	service *PlayerService
+	cache   *LeaderboardCache
 }
 
 func main() {
@@ -32,7 +33,17 @@ func main() {
 
 	repo := &PlayerRepository{db: db}
 	service := &PlayerService{repo: repo}
-	handler := &PlayerHandler{service: service}
+
+	leaderboardCache := &LeaderboardCache{}
+	topPlayerChannel := make(chan []LeaderboardEntry)
+
+	go fetchLeaderboardWorker(service, topPlayerChannel)
+	go updateCacheWorker(leaderboardCache, topPlayerChannel)
+
+	handler := &PlayerHandler{
+		service: service,
+		cache:   leaderboardCache,
+	}
 
 	r := chi.NewRouter()
 
@@ -49,8 +60,6 @@ func main() {
 		r.Patch("/{name}", handler.UpdatePlayer)
 		r.Post("/duel", handler.RecordDuel)
 	})
-
-	go backgroundWorker()
 
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

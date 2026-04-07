@@ -147,16 +147,14 @@ func (h *PlayerHandler) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlayerHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 
-	limit := 10
-	offset := 0
+	h.cache.mu.RLock()
 
-	players, err := h.service.GetTopPlayers(r.Context(), limit, offset)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "Server error")
-		return
-	}
+	top := h.cache.entries
 
-	writeJSON(w, http.StatusOK, players)
+	h.cache.mu.RUnlock()
+
+	w.Header().Set("Content-type", "application/json")
+	json.NewEncoder(w).Encode(top)
 
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"sync"
 )
 
 type Player struct {
@@ -43,4 +44,9 @@ const userContextKey contextKey = "userID"
 type DuelRequest struct {
 	Winner string `json:"winner"`
 	Loser  string `json:"loser"`
+}
+
+type LeaderboardCache struct {
+	mu      sync.RWMutex
+	entries []LeaderboardEntry
 }
