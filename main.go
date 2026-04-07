@@ -1,9 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"time"
+
+	"os/signal"
+	"syscall"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
@@ -31,13 +36,16 @@ func main() {
 	}
 	defer db.Close()
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGABRT)
+	defer stop()
+
 	repo := &PlayerRepository{db: db}
 	service := &PlayerService{repo: repo}
 
 	leaderboardCache := &LeaderboardCache{}
 	topPlayerChannel := make(chan []LeaderboardEntry)
 
-	go fetchLeaderboardWorker(service, topPlayerChannel)
+	go fetchLeaderboardWorker(ctx, service, topPlayerChannel)
 	go updateCacheWorker(leaderboardCache, topPlayerChannel)
 
 	handler := &PlayerHandler{
@@ -60,11 +68,27 @@ func main() {
 		r.Patch("/{name}", handler.UpdatePlayer)
 		r.Post("/duel", handler.RecordDuel)
 	})
-
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
-		port = "8081"
+		port = "8080"
 	}
-	log.Printf("Server has started by port %s...", port)
-	log.Fatal(http.ListenAndServe(":"+port, r))
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal("Server Error", err)
+		}
+	}()
+	log.Println("Server was Started")
+	<-ctx.Done()
+	log.Println("Take a signal, stop the server")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatal("Stopping Error")
+	}
+	log.Println("Server succsesful stoped")
 }

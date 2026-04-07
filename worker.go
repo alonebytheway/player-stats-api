@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func fetchLeaderboardWorker(service *PlayerService, ch chan<- []LeaderboardEntry) {
+func fetchLeaderboardWorker(ctx context.Context, service *PlayerService, ch chan<- []LeaderboardEntry) {
 	for {
 		leader, err := service.GetTopPlayers(context.Background(), 5, 0)
 		if err != nil {
@@ -15,7 +15,12 @@ func fetchLeaderboardWorker(service *PlayerService, ch chan<- []LeaderboardEntry
 			ch <- leader
 			log.Println("New TOP 5")
 		}
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			log.Println("signal of stoping")
+			return
+		case <-time.After(10 * time.Second):
+		}
 	}
 }
 func updateCacheWorker(cache *LeaderboardCache, ch <-chan []LeaderboardEntry) {
