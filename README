@@ -1,53 +1,42 @@
-# Player Stats API
+# 🎮 Player Stats API
 
-Backend сервис на Go для хранения и обработки статистики игроков.
+![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat&logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)
+![CI/CD](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=flat&logo=githubactions)
 
-## 🚀 Функционал
+RESTful API сервис для отслеживания игровой статистики, проведения дуэлей и формирования таблицы лидеров. Написан на Go с использованием принципов Clean Architecture.
 
-- CRUD операции с игроками
-- Частичное обновление (PATCH)
-- Leaderboard (сортировка по KD)
-- Middleware (логирование, аутентификация)
+## ✨ Главные технические особенности
 
-## 🛠 Технологии
+* **Асинхронность (Concurrency):** Таблица лидеров (`/leaderboard`) работает молниеносно благодаря In-Memory кэшированию и фоновым воркерам (Goroutines + Channels), которые обновляют данные без блокировки основных запросов.
+* **Надежность и Безопасность:** * Встроенный `AuthMiddleware` для защиты эндпоинтов (ApiKeyAuth).
+  * `RecovererMiddleware` для защиты от паник сервера.
+  * Graceful Shutdown для корректного завершения работы без обрыва соединений.
+* **База данных:** PostgreSQL. Управление схемой БД реализовано через автоматические миграции библиотеки `Goose`.
+* **Документация:** Живая, интерактивная документация, автогенерируемая с помощью `swag` (Swagger UI).
+* **DevOps & CI:** Полная контейнеризация через Docker-Compose, пульт управления через Makefile и автоматическое тестирование (CI) через GitHub Actions при каждом пуше.
 
-- Go
-- PostgreSQL
-- net/http
+## 🗄️ Эндпоинты (API)
 
-## 🧱 Архитектура
+**Публичные:**
+* `GET /swagger/*` — Интерактивная документация.
 
-Проект построен по layered architecture:
+**Защищенные (требуется токен):**
+* `GET /leaderboard` — Получить топ игроков (отдается из кэша).
+* `GET /players` — Получить список всех игроков.
+* `POST /players` — Зарегистрировать нового игрока.
+* `PATCH /players/{name}` — Частично обновить статистику игрока (kills, deaths, matches).
+* `DELETE /players/{name}` — Удалить игрока.
+* `POST /players/duel` — Записать результаты дуэли между двумя игроками.
 
-- Handler — обработка HTTP запросов
-- Service — бизнес-логика
-- Repository — работа с БД
+---
 
-## 📌 Примеры запросов
+## 🚀 Быстрый старт
 
-### Создание игрока
+Убедитесь, что у вас установлены `Docker` и `Make`.
 
-POST /players
-
-```json
-{
-  "name": "player1",
-  "kills": 10,
-  "deaths": 5,
-  "matches": 3
-}
-### Patch 
-
-PATCH /players/{name}
-{
-  "kills": 10
-}
-### Пример Ответа
-
-{
-  "status": "patched"
-}
-
-### Архитектура
-
-Handler → Service → Repository → DB
+### 1. Клонирование репозитория
+```bash
+git clone [https://github.com/alonebytheway/player-stats-api.git](https://github.com/alonebytheway/player-stats-api.git)
+cd player-stats-api
