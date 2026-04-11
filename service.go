@@ -51,24 +51,6 @@ func (s *PlayerService) GetAll(ctx context.Context) ([]Player, error) {
 }
 
 func (s *PlayerService) Update(ctx context.Context, name string, update UpdatePlayer) error {
-	if name == "" {
-		return ErrorBadRequest
-	}
-
-	if update.Kills != nil && *update.Kills < 0 {
-		return ErrorBadRequest
-	}
-	if update.Deaths != nil && *update.Deaths < 0 {
-		return ErrorBadRequest
-	}
-	if update.Matches != nil && *update.Matches < 0 {
-		return ErrorBadRequest
-	}
-
-	if update.Kills == nil && update.Deaths == nil && update.Matches == nil {
-		return ErrorBadRequest
-	}
-
 	return s.repo.Update(ctx, name, update)
 }
 

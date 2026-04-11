@@ -1,0 +1,80 @@
+basePath: /
+definitions:
+  main.UpdatePlayer:
+    properties:
+      deaths:
+        type: integer
+      kills:
+        type: integer
+      matches:
+        type: integer
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: API сервис для отслеживания статистики игроков в дуэлях.
+  title: Player Stats API
+  version: "1.0"
+paths:
+  /players/{name}:
+    patch:
+      consumes:
+      - application/json
+      description: Частичное обновление данных игрока (убийства, смерти, матчи). Можно
+        передать только те поля, которые нужно изменить.
+      parameters:
+      - description: Имя игрока
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Данные для обновления (JSON)
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/main.UpdatePlayer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешное обновление
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный JSON или параметры
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Игрок не найден
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Ошибка валидации (например, отрицательные значения)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - secret: []
+      summary: Обновить статистику игрока
+      tags:
+      - players
+securityDefinitions:
+  secret:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -13,6 +13,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose"
+
+	_ "player-stats-api/docs"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type PlayerService struct {
@@ -24,6 +28,15 @@ type PlayerHandler struct {
 	cache   *LeaderboardCache
 }
 
+// @title Player Stats API
+// @version 1.0
+// @description API сервис для отслеживания статистики игроков в дуэлях.
+// @host localhost:8081
+// @BasePath /
+//
+// @securityDefinitions.apikey secret
+// @in header
+// @name Authorization
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Fill .env is not found")
@@ -55,18 +68,23 @@ func main() {
 
 	r := chi.NewRouter()
 
+	r.Use(RecovererMiddleware)
 	r.Use(LoggingMiddleware)
-	r.Use(AuthMiddleware)
 
-	r.Get("/leaderboard", handler.GetLeaderboard)
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
-	r.Route("/players", func(r chi.Router) {
-		r.Get("/", handler.GetPlayers)
+	r.Group(func(r chi.Router) {
+		r.Use(AuthMiddleware)
 
-		r.Post("/", handler.CreatePlayer)
-		r.Delete("/{name}", handler.DeletePlayer)
-		r.Patch("/{name}", handler.UpdatePlayer)
-		r.Post("/duel", handler.RecordDuel)
+		r.Get("/leaderboard", handler.GetLeaderboard)
+
+		r.Route("/players", func(r chi.Router) {
+			r.Get("/", handler.GetPlayers)
+			r.Post("/", handler.CreatePlayer)
+			r.Delete("/{name}", handler.DeletePlayer)
+			r.Patch("/{name}", handler.UpdatePlayer)
+			r.Post("/duel", handler.RecordDuel)
+		})
 	})
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {

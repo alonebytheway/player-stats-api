@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
+
+	"golang.org/x/time/rate"
 
 	_ "github.com/lib/pq"
 
@@ -14,6 +17,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+var visitors = make(map[string]*rate.Limiter)
+var mu sync.Mutex
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -33,6 +39,48 @@ func UserIDFromContext(ctx context.Context) (int, bool) {
 func (lrw *LoggingResponseWriter) WriteHeader(code int) {
 	lrw.statusCode = code
 	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func getVisitors(ip string) *rate.Limiter {
+	mu.Lock()
+	defer mu.Unlock()
+
+	limiter, exists := visitors[ip]
+	if !exists {
+		limiter = rate.NewLimiter(3, 5)
+		visitors[ip] = limiter
+	}
+	return limiter
+}
+
+func RateLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+
+		limiter := getVisitors(ip)
+
+		if !limiter.Allow() {
+			http.Error(w, "Too Many requests", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func RecovererMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			err := recover()
+
+			if err != nil {
+				fmt.Println("CRITICAL ERROR panic:", err)
+
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+
+	})
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {
@@ -114,14 +162,35 @@ func (h *PlayerHandler) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]string{"status": "created"})
 }
 
+// @Summary Обновить статистику игрока
+// @Description Частичное обновление данных игрока (убийства, смерти, матчи). Можно передать только те поля, которые нужно изменить.
+// @Tags players
+// @Accept json
+// @Produce json
+// @Security secret
+// @Param name path string true "Имя игрока"
+// @Param input body UpdatePlayer true "Данные для обновления (JSON)"
+// @Success 200 {object} map[string]string "Успешное обновление"
+// @Failure 400 {object} map[string]string "Неверный JSON или параметры"
+// @Failure 404 {object} map[string]string "Игрок не найден"
+// @Failure 422 {object} map[string]string "Ошибка валидации (например, отрицательные значения)"
+// @Failure 500 {object} map[string]string "Внутренняя ошибка сервера"
+// @Router /players/{name} [patch]
 func (h *PlayerHandler) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var update UpdatePlayer
-	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid JSON")
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&update); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalide JSON or unknown fields")
 		return
 	}
+	if err := update.Validate(); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, err.Error())
+		return
+	}
+
 	ctx := r.Context()
 	name := chi.URLParam(r, "name")
 	if name == "" {
@@ -135,14 +204,29 @@ func (h *PlayerHandler) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "Player not found")
 			return
 		}
-		if errors.Is(err, ErrorBadRequest) {
-			writeError(w, http.StatusBadRequest, err.Error())
-		}
 		writeError(w, http.StatusInternalServerError, "Server error")
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+func (u *UpdatePlayer) Validate() error {
+	if u.Kills != nil && *u.Kills < 0 {
+		return ErrorBadRequest
+	}
+	if u.Deaths != nil && *u.Deaths < 0 {
+		return ErrorBadRequest
+	}
+	if u.Matches != nil && *u.Matches < 0 {
+		return ErrorBadRequest
+	}
+
+	if u.Kills == nil && u.Deaths == nil && u.Matches == nil {
+		return ErrorBadRequest
+	}
+
+	return nil
 }
 
 func (h *PlayerHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
@@ -245,7 +329,6 @@ func (h *PlayerHandler) RecordDuel(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-
 	err := h.service.RecordDuel(r.Context(), duelRequest.Winner, duelRequest.Loser)
 	if err != nil {
 		if errors.Is(err, ErrorBadRequest) {

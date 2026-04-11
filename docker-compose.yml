@@ -16,4 +16,4 @@ services:
     depends_on:
       - db
     environment:  # Исправлено (добавлена 'n')
-      DB_URL: "host=db port=5432 user=postgres password=admin123 dbname=postgres sslmode=disable"
+      DB_DSN: "host=db port=5432 user=postgres password=admin123 dbname=postgres sslmode=disable"

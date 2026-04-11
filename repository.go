@@ -90,7 +90,7 @@ func (r *PlayerRepository) Update(ctx context.Context, name string, update Updat
 
 func (r *PlayerRepository) Delete(ctx context.Context, name string) error {
 	result, err := r.db.Exec(
-		"DELETE FROM player WHERE name = $1",
+		"DELETE FROM players WHERE name = $1",
 		name,
 	)
 	if err != nil {
@@ -139,13 +139,46 @@ func (r *PlayerRepository) RecordDuel(ctx context.Context, winner string, loser 
 
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(ctx, "UPDATE players SET kills = kills + 1, matches = matches + 1 WHERE name = $1", winner)
+	var firstName, secondName string
+	var firstQuery, secondQuery string
+
+	if winner < loser {
+		firstName = winner
+		firstQuery = "UPDATE players SET kills = kills + 1, matches = matches + 1 WHERE name = $1"
+
+		secondName = loser
+		secondQuery = "UPDATE players SET deaths = deaths + 1, matches = matches + 1 WHERE name = $1"
+	} else {
+		firstName = loser
+		firstQuery = "UPDATE players SET deaths = deaths + 1, matches = matches + 1 WHERE name = $1"
+
+		secondName = winner
+		secondQuery = "UPDATE players SET kills = kills + 1, matches = matches + 1 WHERE name = $1"
+	}
+
+	res, err := tx.ExecContext(ctx, firstQuery, firstName)
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, "UPDATE players SET deaths = deaths + 1, matches = matches + 1 WHERE name = $1", loser)
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("player %s not found", firstName)
+	}
+
+	res, err = tx.ExecContext(ctx, secondQuery, secondName)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err = res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("player %s not found", secondName)
+	}
+
 	return tx.Commit()
 }
